@@ -16,7 +16,34 @@ class gitlabController extends baseController{
                 .findOne({
                     group_name: groupName
                 }).exec();
-        }
+        };
+        // 覆盖所有members
+        groupModel.prototype.updateAll = function (data) {
+            return this.model.updateOne(
+                {
+                    '_id': data._id
+                },
+                {
+                    $set: {
+                        'members': data.members
+                    }
+                },
+                { multi: true }
+            );
+        };
+        projectModel.prototype.updateAll = function (data) {
+            return this.model.updateOne(
+                {
+                    '_id': data._id
+                },
+                {
+                    $set: {
+                        'members': data.members
+                    }
+                },
+                { multi: true }
+            );
+        };
         this.groupModel = yapi.getInst(groupModel);
         this.projectModel = yapi.getInst(projectModel);
     }
@@ -83,11 +110,11 @@ class gitlabController extends baseController{
         }
     }
 
-    async updateSwagger(ctx) {
-        let result = {test: "hello2"};
-        return (ctx.body = yapi.commons.resReturn(result));
-    }
-
+    /**
+     * gitlab 分组同步
+     * @param ctx
+     * @returns {Promise<{errcode, errmsg, data}>}
+     */
     async asyncGroup(ctx) {
         let group = ctx.request.body;
         group = yapi.commons.handleParams(group, {
@@ -98,9 +125,34 @@ class gitlabController extends baseController{
             _id: "number",
         });
         let ops = this.getOptions();
-        console.log(group);
+        try {
+            let members = await this.searchGitUserByTag(ops, group.group_name, 'groups');
+            let result = await this.updateMemberAll(group._id, members, ops, 'groups');
+            return (ctx.body = yapi.commons.resReturn({}));
+        } catch (e) {
+            return (ctx.body = yapi.commons.resReturn(null, 500, e.message));
+        }
+    }
 
-        return (ctx.body = yapi.commons.resReturn({}));
+    async asyncProjectGroup(ctx) {
+        let project = ctx.request.body;
+        project = yapi.commons.handleParams(project, {
+            add_time: "number",
+            group_id: "number",
+            name: "string",
+            role: "string",
+            uid: "number",
+            _id: "number",
+        });
+        let ops = this.getOptions();
+        try {
+            let group = await this.groupModel.get(project.group_id);
+            let members = await this.searchGitUserByTag(ops, project.name, 'projects', group.group_name);
+            let result = await this.updateMemberAll(project._id, members, ops, 'projects');
+            return (ctx.body = yapi.commons.resReturn({}));
+        } catch (e) {
+            return (ctx.body = yapi.commons.resReturn(null, 500, e.message));
+        }
     }
 
     /**
@@ -139,6 +191,28 @@ class gitlabController extends baseController{
     }
 
     /**
+     * 通过gitlab userId 查询用户明细
+     * @param ops
+     * @param id
+     * @returns {Promise<any>}
+     */
+    searchGitLabUserById(ops, id) {
+        return new Promise((resolve, reject)=>{
+            request(ops.host + '/api/v4/users/' + id, {
+                method: 'get',
+                headers: {
+                    'Private-Token': ops.accessToken
+                }
+            },function (error, response, body) {
+                if (!error && response.statusCode == 200) {
+                    resolve(JSON.parse(body));
+                }
+                reject(body);
+            })
+        });
+    }
+
+    /**
      * 通过email获取当前gitlab用户
      * @param ops
      * @param email
@@ -165,29 +239,116 @@ class gitlabController extends baseController{
         });
     }
 
-    async searchGitUserByGroup(ops, groupName) {
-        
+    async searchGitUserByTag(ops, name, tag, groupName) {
+        try {
+            let gitlabGroup = await this.searchGitLabGroup(ops, name, tag, groupName);
+            let members = await this.searchGitlabMember(ops, gitlabGroup.id, tag);
+            return members;
+        } catch (e) {
+            throw e;
+        }
     }
 
-    async searchGitLabGroup(ops, groupName) {
+    /**
+     * 查询gitlab 分组下所有用户
+     * @param ops
+     * @param id
+     * @returns {Promise<*>}
+     */
+    async searchGitlabMember(ops, id, tag) {
         return new Promise((resolve, reject)=>{
-            request(ops.host + '/api/v4/groups?search=' + groupName, {
+            request(ops.host + '/api/v4/' + tag + '/' + id + '/members/all', {
                 method: 'get',
                 headers: {
                     'Private-Token': ops.accessToken
                 }
             },function (error, response, body) {
                 if (!error && response.statusCode == 200) {
-                    let groups = JSON.parse(body);
-                    if (!Array.isArray(groups) || groups.length < 1 || groups[0].name !== groupName) {
-                        reject({message: 'not find group'});
+                    resolve(JSON.parse(body));
+                }
+                reject(body);
+            })
+        });
+    }
+
+    /**
+     * 查询gitlab 分组或者项目明细
+     * @param ops
+     * @param groupName
+     * @returns {Promise<*>}
+     */
+    async searchGitLabGroup(ops, name, tag, groupName) {
+        return new Promise((resolve, reject)=>{
+            request(ops.host + '/api/v4/' + tag + '?search=' + name, {
+                method: 'get',
+                headers: {
+                    'Private-Token': ops.accessToken
+                }
+            },function (error, response, body) {
+                if (!error && response.statusCode == 200) {
+                    let array = JSON.parse(body);
+                    if (!Array.isArray(array) || array.length < 1) {
+                        reject({message: 'not find ' + tag});
                     } else {
-                        resolve((JSON.parse(body))[0]);
+                        if (tag === 'groups' && name === array[0].name) {
+                            resolve(array[0]);
+                        } else {
+                            for (let i = 0; i < array.length; i++) {
+                                if (array[i].path_with_namespace.indexOf(groupName + '/' + name) > -1) {
+                                    resolve(array[i]);
+                                }
+                            }
+                        }
+                        reject({message: 'not find ' + tag});
                     }
                 }
                 reject(body);
             })
         });
+    }
+
+    /**
+     * 更新yapi分组成员
+     * @param group
+     * @param members
+     * @param ops
+     * @returns {Promise<*>}
+     */
+    async updateMemberAll(id, members, ops, tag) {
+        let owners = [];
+        for (let i = 0; i < members.length; i++) {
+            let gitlabUser = await this.searchGitLabUserById(ops, members[i].id);
+            let user = await this.handleThirdLogin(gitlabUser[ops.emailKey], gitlabUser[ops.userKey])
+            owners.push({
+                _role: user.role,
+                role: members[i].access_level > 30? 'owner' : members[i].access_level > 20? 'dev' : 'guest',
+                uid: user._id,
+                username: user.username,
+                email: user.email
+            })
+        }
+        let result = null;
+        if (tag === 'groups') {
+            result = await this.groupModel.updateAll({
+                _id: id,
+                members: owners
+            });
+        } else {
+            result = await this.projectModel.updateAll({
+                _id: id,
+                members: owners
+            });
+        }
+
+        let username = this.$user.username;
+        yapi.commons.saveLog({
+            content: `<a href="/user/profile/${this.getUid()}">${username}</a> 从gitlab同步了分组`,
+            type: tag === 'groups'?'group':'project',
+            uid: this.getUid(),
+            username: username,
+            typeid: id
+        });
+        return result;
     }
 
     /**
@@ -365,7 +526,6 @@ class gitlabController extends baseController{
             }
             return user;
         } catch (e) {
-            console.error('third_login:', e.message); // eslint-disable-line
             throw new Error(`third_login: ${e.message}`);
         }
     }
@@ -409,6 +569,16 @@ class gitlabController extends baseController{
             return false;
         }
         return basepath;
+    }
+
+    async handlePrivateGroup(uid) {
+        await this.groupModel.save({
+            uid: uid,
+            group_name: 'User-' + uid,
+            add_time: yapi.commons.time(),
+            up_time: yapi.commons.time(),
+            type: 'private'
+        });
     }
 }
 

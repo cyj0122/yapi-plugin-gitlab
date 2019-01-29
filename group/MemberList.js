@@ -182,12 +182,11 @@ class MemberList extends Component {
   // gitlab 分组同步
   asyncGitLab = () => {
     axios.post('/api/plugin/gitlab/asyncGroup', this.props.currGroup).then(res => {
-      if (res.status === 200) {
+      if (!res.data.errcode) {
           this.reFetchList();
           message.success('同步成功')
-      }
-    }).catch(() => {
-      message.error('同步失败！');
+      } else
+          message.error(res.data.errmsg);
     });
   }
 
