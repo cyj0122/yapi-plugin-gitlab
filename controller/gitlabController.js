@@ -34,7 +34,7 @@ class gitlabController extends baseController{
             this.$user = await this.handleThirdLogin(result.email, result.username);
             this.$uid = this.$user._id;
         } else {
-            await super.init(ctcx);
+            await super.init(ctx);
         }
     }
 
@@ -88,6 +88,21 @@ class gitlabController extends baseController{
         return (ctx.body = yapi.commons.resReturn(result));
     }
 
+    async asyncGroup(ctx) {
+        let group = ctx.request.body;
+        group = yapi.commons.handleParams(group, {
+            add_time: "number",
+            group_name: "string",
+            role: "string",
+            uid: "number",
+            _id: "number",
+        });
+        let ops = this.getOptions();
+        console.log(group);
+
+        return (ctx.body = yapi.commons.resReturn({}));
+    }
+
     /**
      * 获取插件配置
      * @returns {*}
@@ -101,6 +116,12 @@ class gitlabController extends baseController{
         return null;
     }
 
+    /**
+     * 通过token获取gitlab当前用户
+     * @param ops
+     * @param token
+     * @returns {Promise<any>}
+     */
     getGitLabUser(ops, token) {
         return new Promise((resolve, reject)=>{
             request(ops.host + ops.loginPath, {
@@ -117,6 +138,12 @@ class gitlabController extends baseController{
         });
     }
 
+    /**
+     * 通过email获取当前gitlab用户
+     * @param ops
+     * @param email
+     * @returns {Promise<any>}
+     */
     searchGitLabUser(ops, email) {
         return new Promise((resolve, reject)=>{
             request(ops.host + '/api/v4/users?search=' + email, {
@@ -126,7 +153,37 @@ class gitlabController extends baseController{
                 }
             },function (error, response, body) {
                 if (!error && response.statusCode == 200) {
-                    resolve((JSON.parse(body))[0]);
+                    let userArray = JSON.parse(body);
+                    if (!Array.isArray(userArray) || userArray.length < 1 || userArray[0].email !== email) {
+                        reject({message: 'not find email'});
+                    } else {
+                        resolve((JSON.parse(body))[0]);
+                    }
+                }
+                reject(body);
+            })
+        });
+    }
+
+    async searchGitUserByGroup(ops, groupName) {
+        
+    }
+
+    async searchGitLabGroup(ops, groupName) {
+        return new Promise((resolve, reject)=>{
+            request(ops.host + '/api/v4/groups?search=' + groupName, {
+                method: 'get',
+                headers: {
+                    'Private-Token': ops.accessToken
+                }
+            },function (error, response, body) {
+                if (!error && response.statusCode == 200) {
+                    let groups = JSON.parse(body);
+                    if (!Array.isArray(groups) || groups.length < 1 || groups[0].name !== groupName) {
+                        reject({message: 'not find group'});
+                    } else {
+                        resolve((JSON.parse(body))[0]);
+                    }
                 }
                 reject(body);
             })

@@ -1,4 +1,5 @@
 import React, { Component } from 'react'
+import Group from './group/Group.js'
 
 /**
  *
@@ -18,6 +19,14 @@ module.exports = function (options) {
     )
 
     this.bindHook('third_login', GitLabComponent);
+
+    this.bindHook('app_route', function (router) {
+        router.group = {
+            path: '/group',
+            component: Group
+        }
+
+    })
 };
 
 

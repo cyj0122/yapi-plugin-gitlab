@@ -45,6 +45,13 @@ module.exports = function (options) {
             method: 'post',
             path: 'gitlab/project',
             action: 'addProject'
+        });
+
+        addRouter({
+            controller: gitlabController,
+            method: 'post',
+            path: 'gitlab/asyncGroup',
+            action: 'asyncGroup'
         })
     });
 }
