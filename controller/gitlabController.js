@@ -55,7 +55,7 @@ class gitlabController extends baseController{
             this.$auth = true;
             this.$user = await this.handleThirdLogin(result.email, result.username);
             this.$uid = this.$user._id;
-        } else if (ctx.request.header['X-Gitlab-Event'] && ctx.request.header['X-Gitlab-Event'] === 'System Hook') {
+        } else if (ctx.request.header['x-gitlab-event'] && ctx.request.header['x-gitlab-event'] === 'System Hook') {
             let result = await this.getGitLabUser(ops, ctx.request.body.owner_email);
             this.$auth = true;
             this.$user = await this.handleThirdLogin(result.email, result.username);
@@ -198,7 +198,7 @@ class gitlabController extends baseController{
      */
     searchGitLabUserById(ops, id) {
         return new Promise((resolve, reject)=>{
-            request(ops.host + '/api/v4/users/' + id, {
+            request(ops.host + loginPath + '/' + id, {
                 method: 'get',
                 headers: {
                     'Private-Token': ops.accessToken
@@ -220,7 +220,7 @@ class gitlabController extends baseController{
      */
     searchGitLabUser(ops, email) {
         return new Promise((resolve, reject)=>{
-            request(ops.host + '/api/v4/users?search=' + email, {
+            request(ops.host + ops.loginPath + '?search=' + email, {
                 method: 'get',
                 headers: {
                     'Private-Token': ops.accessToken

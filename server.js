@@ -18,11 +18,9 @@ module.exports = function (options) {
                             username: result[userKey]
                         };
                         resolve(ret);
-                    } else {
-                        reject(result);
                     }
                 }
-                reject(error);
+                reject({message: host + loginPath + ' with access_token can not login!'});
             });
         });
     });
