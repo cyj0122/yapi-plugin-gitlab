@@ -1,6 +1,6 @@
 # yapi-plugin-gitlab
 
-gitlab集成插件，配置方法如下：
+yapi gitlab集成插件，配置方法如下：
 
 ### 功能说明
 
