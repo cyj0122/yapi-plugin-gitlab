@@ -56,7 +56,7 @@ class gitlabController extends baseController{
             this.$user = await this.handleThirdLogin(result.email, result.username);
             this.$uid = this.$user._id;
         } else if (ctx.request.header['x-gitlab-event'] && ctx.request.header['x-gitlab-event'] === 'System Hook') {
-            let result = await this.getGitLabUser(ops, ctx.request.body.owner_email);
+            let result = await this.searchGitLabUser(ops, ctx.request.body.owner_email);
             this.$auth = true;
             this.$user = await this.handleThirdLogin(result.email, result.username);
             this.$uid = this.$user._id;
