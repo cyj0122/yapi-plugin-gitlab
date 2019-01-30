@@ -60,3 +60,7 @@ yapi gitlab集成插件，配置方法如下：
 ![yapi group async](https://github.com/cyj0122/docImages/blob/master/yapi-plugin-gitlab/yapi-gitlab-gourpasync.png)
 
 ![yapi project async](https://github.com/cyj0122/docImages/blob/master/yapi-plugin-gitlab/yapi-gitlab-projectasync.png)
+
+### 鸣谢
+
+[xwxsee2014](https://github.com/xwxsee2014/yapi-plugin-oauth2)
