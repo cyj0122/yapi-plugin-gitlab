@@ -227,7 +227,7 @@ class MemberList extends Component {
           this.state.role === 'owner' || this.state.role === 'admin' ? (
             <div className="btn-container">
               <Button className="btn" type="primary" onClick={this.showAddMemberModal}>
-                添加成员2
+                添加成员
               </Button>
               <Button className="btn" style={{marginLeft: '8px'}} onClick={this.asyncGitLab}>
                 gitLab成员同步
