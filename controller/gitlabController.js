@@ -50,13 +50,14 @@ class gitlabController extends baseController{
 
     async init(ctx) {
         let ops = this.getOptions();
-        if (ctx.request.header.token) {
-            let result = await this.getGitLabUser(ops, ctx.request.header.token);
+        if (ctx.request.header.oauth_token) {
+            let result = await this.getGitLabUser(ops, ctx.request.header.oauth_token);
             this.$auth = true;
             this.$user = await this.handleThirdLogin(result.email, result.username);
             this.$uid = this.$user._id;
-        } else if (ctx.request.header['x-gitlab-event'] && ctx.request.header['x-gitlab-event'] === 'System Hook') {
-            let result = await this.searchGitLabUser(ops, ctx.request.body.owner_email);
+        } else if (ctx.request.header['x-gitlab-event'] && ctx.request.header['x-gitlab-event'] === 'System Hook' && ctx.request.body.event_name === 'project_create') {
+            let project = await this.searchGitLabProjectById(ops, ctx.request.body.project_id);
+            let result = await this.searchGitLabUserById(ops, project.creator_id);
             this.$auth = true;
             this.$user = await this.handleThirdLogin(result.email, result.username);
             this.$uid = this.$user._id;
@@ -77,8 +78,6 @@ class gitlabController extends baseController{
             updated_at: "string",
             event_name: "string",
             name: "string",
-            owner_email: "string",
-            owner_name: "string",
             path: "string",
             path_with_namespace: "string",
             project_id: "number",
@@ -103,7 +102,7 @@ class gitlabController extends baseController{
                 basepath: '',
                 group_id: group._id,
                 group_name: group.group_name,
-                project_type: params.project_visibility === 'private'?'private':'public'
+                project_type: params.project_visibility === 'visibilitylevel|private'?'private':'public'
             });
         } else {
             return (ctx.body = yapi.commons.resReturn(null, 500, '无法获取分组名称'));
@@ -191,14 +190,14 @@ class gitlabController extends baseController{
     }
 
     /**
-     * 通过gitlab userId 查询用户明细
+     * 通过project id 获取明细
      * @param ops
      * @param id
      * @returns {Promise<any>}
      */
-    searchGitLabUserById(ops, id) {
+    searchGitLabProjectById(ops, id) {
         return new Promise((resolve, reject)=>{
-            request(ops.host + loginPath + '/' + id, {
+            request(ops.host + '/api/v4/projects/' + id, {
                 method: 'get',
                 headers: {
                     'Private-Token': ops.accessToken
@@ -213,26 +212,21 @@ class gitlabController extends baseController{
     }
 
     /**
-     * 通过email获取当前gitlab用户
+     * 通过gitlab userId 查询用户明细
      * @param ops
-     * @param email
+     * @param id
      * @returns {Promise<any>}
      */
-    searchGitLabUser(ops, email) {
+    searchGitLabUserById(ops, id) {
         return new Promise((resolve, reject)=>{
-            request(ops.host + ops.loginPath + '?search=' + email, {
+            request(ops.host + '/api/v4/users/' + id, {
                 method: 'get',
                 headers: {
                     'Private-Token': ops.accessToken
                 }
             },function (error, response, body) {
                 if (!error && response.statusCode == 200) {
-                    let userArray = JSON.parse(body);
-                    if (!Array.isArray(userArray) || userArray.length < 1 || userArray[0].email !== email) {
-                        reject({message: 'not find email'});
-                    } else {
-                        resolve((JSON.parse(body))[0]);
-                    }
+                    resolve(JSON.parse(body));
                 }
                 reject(body);
             })
@@ -241,9 +235,29 @@ class gitlabController extends baseController{
 
     async searchGitUserByTag(ops, name, tag, groupName) {
         try {
-            let gitlabGroup = await this.searchGitLabGroup(ops, name, tag, groupName);
-            let members = await this.searchGitlabMember(ops, gitlabGroup.id, tag);
-            return members;
+            let obj = await this.searchGitLabGroup(ops, name, tag, groupName);
+            if (tag === 'projects') {
+                if (obj.namespace.kind === 'user') {
+                    return await this.searchGitlabMember(ops, obj.id, tag);
+                }
+                obj = await this.searchGitLabGroupById(ops, obj.namespace.id);
+            }
+            let temp = JSON.parse(JSON.stringify(obj));
+            let members = await this.searchGitlabMember(ops, obj.id, tag);
+            let map;
+            members.forEach(item => {
+               map[item.id] = item;
+            });
+            while (temp.parent_id) {
+                temp = await this.searchGitLabGroupById(ops, temp.id);
+                let tempMembers = await this.searchGitlabMember(ops, temp.id, tag);
+                tempMembers.forEach(item => {
+                   if (!map[item.id]) {
+                        map[item.id] = item;
+                   }
+                });
+            }
+            return map.values();
         } catch (e) {
             throw e;
         }
@@ -257,7 +271,23 @@ class gitlabController extends baseController{
      */
     async searchGitlabMember(ops, id, tag) {
         return new Promise((resolve, reject)=>{
-            request(ops.host + '/api/v4/' + tag + '/' + id + '/members/all', {
+            request(ops.host + '/api/v4/' + tag + '/' + id + '/members', {
+                method: 'get',
+                headers: {
+                    'Private-Token': ops.accessToken
+                }
+            },function (error, response, body) {
+                if (!error && response.statusCode == 200) {
+                    resolve(JSON.parse(body));
+                }
+                reject(body);
+            })
+        });
+    }
+
+    async searchGitLabGroupById(ops, id) {
+        return new Promise((resolve, reject)=>{
+            request(ops.host + '/api/v4/groups/' + id, {
                 method: 'get',
                 headers: {
                     'Private-Token': ops.accessToken
