@@ -29,7 +29,6 @@ class oauth2Controller {
                 + ops.appSecret + '&code=' + oauthcode + "&grant_type=authorization_code&redirect_uri=" + encodeURIComponent(ops.redirectUri);
             let tokenResult = await this.requestInfo(ops, tokenpath, 'POST').then(function(res) {
                 let jsonRes = JSON.parse(res);
-                console.log(jsonRes.access_token);
                 ctx.redirect('/api/user/login_by_token?token=' + jsonRes.access_token);
             }).catch(function(rej) {
                 return {
