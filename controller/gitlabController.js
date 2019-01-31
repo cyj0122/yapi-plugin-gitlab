@@ -133,6 +133,11 @@ class gitlabController extends baseController{
         }
     }
 
+    /**
+     * 项目成员同步
+     * @param ctx
+     * @returns {Promise<{errcode, errmsg, data}>}
+     */
     async asyncProjectGroup(ctx) {
         let project = ctx.request.body;
         project = yapi.commons.handleParams(project, {
@@ -233,6 +238,14 @@ class gitlabController extends baseController{
         });
     }
 
+    /**
+     * 获取所有分组成员（为支持gitlab 10.0.0 放弃/members/all 接口）
+     * @param ops
+     * @param name
+     * @param tag
+     * @param groupName
+     * @returns {Promise<*>}
+     */
     async searchGitUserByTag(ops, name, tag, groupName) {
         try {
             let map = new Map();
@@ -248,19 +261,32 @@ class gitlabController extends baseController{
                 obj = await this.searchGitLabGroupById(ops, obj.namespace.id);
             }
             let temp = JSON.parse(JSON.stringify(obj));
-            do {
-                let members = await this.searchGitlabMember(ops, temp.id, 'groups');
-                members.forEach(item => {
-                    if (!map.has(item.id)) {
-                        map.set(item.id, item);
-                    }
-                });
-                temp = await this.searchGitLabGroupById(ops, temp.id);
-            } while (temp.parent_id)
+            map = await this.getParentGroup(ops, map, temp);
             return Array.from(map.values());
         } catch (e) {
             throw e;
         }
+    }
+
+    /**
+     * 迭代获取父节点分组成员
+     * @param ops
+     * @param map
+     * @param temp
+     * @returns {Promise<*>}
+     */
+    async getParentGroup(ops, map, temp) {
+        let members = await this.searchGitlabMember(ops, temp.id, 'groups');
+        members.forEach(item => {
+            if (!map.has(item.id)) {
+                map.set(item.id, item);
+            }
+        });
+        if (temp.parent_id) {
+            temp = await this.searchGitLabGroupById(ops, temp.parent_id);
+            map = await this.getParentGroup(ops, map, temp);
+        }
+        return map;
     }
 
     /**
@@ -285,6 +311,12 @@ class gitlabController extends baseController{
         });
     }
 
+    /**
+     * 通过分组Id 查询分组明细
+     * @param ops
+     * @param id
+     * @returns {Promise<*>}
+     */
     async searchGitLabGroupById(ops, id) {
         return new Promise((resolve, reject)=>{
             request(ops.host + '/api/v4/groups/' + id, {
@@ -324,7 +356,8 @@ class gitlabController extends baseController{
                             resolve(array[0]);
                         } else {
                             for (let i = 0; i < array.length; i++) {
-                                if (array[i].path_with_namespace.indexOf(groupName + '/' + name) > -1) {
+                                let nameWithSpace = array[i].name_with_namespace.replace(new RegExp(' ','gm'), '');
+                                if (nameWithSpace.indexOf(groupName + '/' + name) > -1) {
                                     resolve(array[i]);
                                 }
                             }
