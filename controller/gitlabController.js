@@ -235,29 +235,29 @@ class gitlabController extends baseController{
 
     async searchGitUserByTag(ops, name, tag, groupName) {
         try {
+            let map = new Map();
             let obj = await this.searchGitLabGroup(ops, name, tag, groupName);
             if (tag === 'projects') {
+                let us = await this.searchGitlabMember(ops, obj.id, tag);
                 if (obj.namespace.kind === 'user') {
-                    return await this.searchGitlabMember(ops, obj.id, tag);
+                    return us;
                 }
+                us.forEach(item => {
+                    map.set(item.id, item);
+                });
                 obj = await this.searchGitLabGroupById(ops, obj.namespace.id);
             }
             let temp = JSON.parse(JSON.stringify(obj));
-            let members = await this.searchGitlabMember(ops, obj.id, tag);
-            let map;
-            members.forEach(item => {
-               map[item.id] = item;
-            });
-            while (temp.parent_id) {
-                temp = await this.searchGitLabGroupById(ops, temp.id);
-                let tempMembers = await this.searchGitlabMember(ops, temp.id, tag);
-                tempMembers.forEach(item => {
-                   if (!map[item.id]) {
-                        map[item.id] = item;
-                   }
+            do {
+                let members = await this.searchGitlabMember(ops, temp.id, 'groups');
+                members.forEach(item => {
+                    if (!map.has(item.id)) {
+                        map.set(item.id, item);
+                    }
                 });
-            }
-            return map.values();
+                temp = await this.searchGitLabGroupById(ops, temp.id);
+            } while (temp.parent_id)
+            return Array.from(map.values());
         } catch (e) {
             throw e;
         }
