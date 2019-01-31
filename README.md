@@ -22,7 +22,11 @@ yapi gitlab集成插件，配置方法如下：
 
 ![gitlab setting2](https://github.com/cyj0122/docImages/blob/master/yapi-plugin-gitlab/gitlab-accesstoken-setting.png)
 
-第三步：在生成的配置文件config.json中加入如下配置
+第三部：在gilab中配置回调函数
+
+![gitlab setting3](https://github.com/cyj0122/docImages/blob/master/yapi-plugin-gitlab/gitlab-setting-hooks.png)
+
+第四步：在生成的配置文件config.json中加入如下配置
 
 ```json
 "plugins": [{
