@@ -1,6 +1,7 @@
 const baseController = require('controllers/base.js');
 const yapi = require('yapi.js');
 const http = require('http')
+const https = require('https')
 
 class oauth2Controller {
     constructor(ctx){
@@ -31,6 +32,7 @@ class oauth2Controller {
                 let jsonRes = JSON.parse(res);
                 ctx.redirect('/api/user/login_by_token?token=' + jsonRes.access_token);
             }).catch(function(rej) {
+                console.log(rej)
                 return {
                     status_code: rej.statuscode,
                     message: rej.statusMessage
@@ -52,11 +54,41 @@ class oauth2Controller {
     }
 
     requestInfo(ops, path, method) {
+        if (ops.host.indexOf('https://') !== -1) {
+            return new Promise((resolve, reject) => {
+                let req = '';
+                let http_client = https.request({
+                    host: ops.host.replace('https://', ''),
+                    path: path,
+                    method: method
+                }, function(res) {
+                    res.on('error', function(err) {
+                        reject(err);
+                    });
+                    res.setEncoding('utf8');
+                    if (res.statusCode != 200) {
+                        reject({statuscode: res.statusCode, statusMessage: res.statusMessage});
+                    } else {
+                        res.on('data', function(chunk) {
+                            req += chunk;
+                        });
+                        res.on('end', function() {
+                            resolve(req);
+                        });
+                    }
+                });
+                http_client.on('error', () => {
+                    reject({message: 'request error'});
+                });
+                http_client.end();
+            });
+        }
+
         return new Promise((resolve, reject) => {
             let req = '';
             let http_client = http.request(ops.host + path,
                 {
-                    method: method
+                    method: method,
                 },
                 function(res) {
                     res.on('error', function(err) {
