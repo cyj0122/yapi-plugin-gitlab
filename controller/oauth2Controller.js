@@ -1,6 +1,7 @@
 const baseController = require('controllers/base.js');
 const yapi = require('yapi.js');
 const http = require('http')
+const https = require("https")
 
 class oauth2Controller {
     constructor(ctx){
@@ -52,33 +53,63 @@ class oauth2Controller {
     }
 
     requestInfo(ops, path, method) {
-        return new Promise((resolve, reject) => {
-            let req = '';
-            let http_client = http.request(ops.host + path,
-                {
+        if (ops.host.indexOf("https://") !== -1) {
+            return new Promise((resolve, reject) => {
+                let req = '';
+                let httpsClient = https.request({
+                    host: ops.host.replace("https://", ""),
+                    path: path,
                     method: method
-                },
-                function(res) {
-                    res.on('error', function(err) {
+                }, function(res) {
+                    res.on("error", function(err) {
                         reject(err);
                     });
-                    res.setEncoding('utf8');
+                    res.setEncoding("utf8");
                     if (res.statusCode != 200) {
                         reject({statuscode: res.statusCode, statusMessage: res.statusMessage});
                     } else {
-                        res.on('data', function(chunk) {
+                        res.on("data", function(chunk) {
                             req += chunk;
                         });
-                        res.on('end', function() {
+                        res.on("end", function() {
+                            resolve(req);
+                        });
+                    }
+                });
+                httpsClient.on("error", () => {
+                    reject({message: "request error"});
+                });
+                httpsClient.end();
+            });
+        }
+
+        return new Promise((resolve, reject) => {
+            let req = "";
+            let httpClient = http.request(ops.host + path,
+                {
+                    method,
+                },
+                function(res) {
+                    res.on("error", function(err) {
+                        reject(err);
+                    });
+                    res.setEncoding("utf8");
+                    if (res.statusCode != 200) {
+                        reject({statuscode: res.statusCode, statusMessage: res.statusMessage});
+                    } else {
+                        res.on("data", function(chunk) {
+                            req += chunk;
+                        });
+                        res.on("end", function() {
                             resolve(req);
                         });
                     }
                 }
             );
-            http_client.on('error', (e) => {
-                reject({message: 'request error'});
+            httpClient.on("error", (e) => {
+                reject({message: "request error"});
             });
-            http_client.end();
+            httpClient.end();
         });
     }
 }
