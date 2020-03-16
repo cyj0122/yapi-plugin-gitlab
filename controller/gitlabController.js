@@ -14,7 +14,7 @@ class gitlabController extends baseController{
         groupModel.prototype.getByName = function (groupName) {
             return this.model
                 .findOne({
-                    group_name: groupName
+                    groupName: groupName
                 }).exec();
         };
         // 覆盖所有members
@@ -87,13 +87,13 @@ class gitlabController extends baseController{
             return (ctx.body = yapi.commons.resReturn(null, 500, "event must be project_create"));
         }
         let namespace = (params.path_with_namespace.substring(0, params.path_with_namespace.lastIndexOf("/" + params.path))).split("/");
-        let group_name = namespace[namespace.length - 1];
-        if (group_name && group_name !== "") {
-            let group = await this.groupModel.getByName(group_name);
+        let groupName = namespace[namespace.length - 1];
+        if (groupName && groupName !== "") {
+            let group = await this.groupModel.getByName(groupName);
             if (!group) {
                 // 创建group
                 group = await this.addGroup({
-                    group_name: group_name,
+                    groupName: groupName,
                     owner_uids: []
                 });
             }
@@ -101,8 +101,8 @@ class gitlabController extends baseController{
                 name: params.name,
                 basepath: "",
                 group_id: group._id,
-                group_name: group.group_name,
-                project_type: params.project_visibility === "visibilitylevel|private"?"private":"public"
+                groupName: group.groupName,
+                projectType: params.project_visibility === "visibilitylevel|private"?"private":"public"
             });
         } else {
             return (ctx.body = yapi.commons.resReturn(null, 500, "无法获取分组名称"));
@@ -118,14 +118,14 @@ class gitlabController extends baseController{
         let group = ctx.request.body;
         group = yapi.commons.handleParams(group, {
             add_time: "number",
-            group_name: "string",
+            groupName: "string",
             role: "string",
             uid: "number",
             _id: "number",
         });
         let ops = this.getOptions();
         try {
-            let members = await this.searchGitUserByTag(ops, group.group_name, "groups");
+            let members = await this.searchGitUserByTag(ops, group.groupName, "groups");
             let result = await this.updateMemberAll(group._id, members, ops, "groups");
             return (ctx.body = yapi.commons.resReturn({}));
         } catch (e) {
@@ -151,7 +151,7 @@ class gitlabController extends baseController{
         let ops = this.getOptions();
         try {
             let group = await this.groupModel.get(project.group_id);
-            let members = await this.searchGitUserByTag(ops, project.name, "projects", group.group_name);
+            let members = await this.searchGitUserByTag(ops, project.name, "projects", group.groupName);
             let result = await this.updateMemberAll(project._id, members, ops, "projects");
             return (ctx.body = yapi.commons.resReturn({}));
         } catch (e) {
@@ -416,7 +416,7 @@ class gitlabController extends baseController{
 
     /**
      * 新增分组
-     * @param {String} group_name 项目分组名称，不能为空
+     * @param {String} groupName 项目分组名称，不能为空
      * @param {String} [group_desc] 项目分组描述
      * @param {String} [owner_uids]  组长[uid]
      * @param params
@@ -442,14 +442,14 @@ class gitlabController extends baseController{
 
         let groupInst = yapi.getInst(groupModel);
 
-        let checkRepeat = await groupInst.checkRepeat(params.group_name);
+        let checkRepeat = await groupInst.checkRepeat(params.groupName);
 
         if (checkRepeat > 0) {
             return (ctx.body = yapi.commons.resReturn(null, 401, "项目分组名已存在"));
         }
 
         let data = {
-            group_name: params.group_name,
+            groupName: params.groupName,
             group_desc: params.group_desc,
             uid: this.getUid(),
             add_time: yapi.commons.time(),
@@ -460,7 +460,7 @@ class gitlabController extends baseController{
         let result = await groupInst.save(data);
         result = yapi.commons.fieldSelect(result, [
             "_id",
-            "group_name",
+            "groupName",
             "group_desc",
             "uid",
             "members",
@@ -478,8 +478,8 @@ class gitlabController extends baseController{
      * @param {String} name 项目名称，不能为空
      * @param {String} basepath 项目基本路径，不能为空
      * @param {Number} group_id 项目分组id，不能为空
-     * @param {Number} group_name 项目分组名称，不能为空
-     * @param {String} project_type private public
+     * @param {Number} groupName 项目分组名称，不能为空
+     * @param {String} projectType private public
      * @param  {String} [desc] 项目描述
      * @returns {Object}
      * @example ./api/project/add.json
@@ -506,10 +506,10 @@ class gitlabController extends baseController{
             desc: params.desc,
             basepath: params.basepath,
             members: [],
-            project_type: params.project_type || "private",
+            projectType: params.projectType || "private",
             uid: this.getUid(),
             group_id: params.group_id,
-            group_name: params.group_name,
+            groupName: params.groupName,
             icon: params.icon,
             color: params.color,
             add_time: yapi.commons.time(),
@@ -637,7 +637,7 @@ class gitlabController extends baseController{
     async handlePrivateGroup(uid) {
         await this.groupModel.save({
             uid: uid,
-            group_name: "User-" + uid,
+            groupName: "User-" + uid,
             add_time: yapi.commons.time(),
             up_time: yapi.commons.time(),
             type: "private"
