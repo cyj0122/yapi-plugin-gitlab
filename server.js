@@ -8,7 +8,7 @@ module.exports = function (options) {
 
     this.bindHook('third_login', (ctx) => {
         let token = ctx.request.body.token || ctx.request.query.token;
-        let options = host.indexOf('https') == 0 ? {rejectUnauthorized: false} : {};
+        let options = host.indexOf("https") === 0 ? {rejectUnauthorized: false} : {};
         return new Promise((resolve, reject) => {
             request(host + loginPath + "?access_token=" + token, options, function (error, response, body) {
                 if (!error && response.statusCode == 200) {
