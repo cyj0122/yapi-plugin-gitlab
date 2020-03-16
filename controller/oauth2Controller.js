@@ -68,7 +68,7 @@ class oauth2Controller {
                         reject(err);
                     });
                     res.setEncoding("utf8");
-                    if (res.statusCode != 200) {
+                    if (res.statusCode !== 200) {
                         reject({statuscode: res.statusCode, statusMessage: res.statusMessage});
                     } else {
                         res.on("data", function(chunk) {
