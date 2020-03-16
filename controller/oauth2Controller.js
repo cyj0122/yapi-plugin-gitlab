@@ -1,6 +1,7 @@
 const baseController = require('controllers/base.js');
 const yapi = require('yapi.js');
 const http = require('http')
+const https = require('https')
 
 class oauth2Controller {
     constructor(ctx){
@@ -54,10 +55,14 @@ class oauth2Controller {
     requestInfo(ops, path, method) {
         return new Promise((resolve, reject) => {
             let req = '';
-            let http_client = http.request(ops.host + path,
-                {
-                    method: method
-                },
+            let client = http;
+            let options = {method: method};
+            if (ops.host.indexOf('https') == 0 ) {
+                client = https;
+                options.rejectUnauthorized = false;
+            }
+            let http_client = client.request(ops.host + path,
+                options,
                 function(res) {
                     res.on('error', function(err) {
                         reject(err);
