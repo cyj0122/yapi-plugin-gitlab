@@ -51,7 +51,7 @@ class MemberList extends Component {
       visible: false,
       dataSource: [],
       inputUids: [],
-      inputRole: 'dev'
+      inputRole: "dev"
     };
   }
   static propTypes = {
